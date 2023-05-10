@@ -1,4 +1,6 @@
 using ImageShrinkerWebJob.Configuration;
+using ImageShrinkerWebJob.Services;
+using ImageShrinkerWebJob.Services.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +31,9 @@ public static class StartupExtensions
             services.Configure<ImageProcessing>(context.Configuration.GetRequiredSection(nameof(ImageProcessing)));
             
             #endregion
+
+            services.AddSingleton<ImageSharpEncoderProvider>();
+            services.AddSingleton<IImageResizer, ImageSharpImageResizer>();
         });
 
         #endregion
