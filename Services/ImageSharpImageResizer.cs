@@ -11,22 +11,33 @@ public class ImageSharpImageResizer : IImageResizer
         this.encoderProvider = encoderProvider;
     }
 
-    public async Task<Stream> ResizeImageAsync(string pathToImage, Size newSize)
+    public Task<Stream> ResizeImageAsync(string pathToImage, Size newSize)
     {
-        using var image = await Image.LoadAsync(pathToImage);
+        return ResizeImageAsync(File.OpenRead(pathToImage), Path.GetExtension(pathToImage), newSize);
+    }
+    
+    public async Task<Stream> ResizeImageAsync(Stream imageStream, string imageExtension, Size newSize)
+    {
+        using var image = await Image.LoadAsync(imageStream);
         image.Mutate(mutatingBuilder =>
         {
             mutatingBuilder.Resize(GetResizeOptions(newSize));
         });
 
         var resultStream = new MemoryStream();
-        await image.SaveAsync(resultStream, encoderProvider.GetEncoder(Path.GetExtension(pathToImage)));
+        await image.SaveAsync(resultStream, encoderProvider.GetEncoder(imageExtension));
+        resultStream.Position = 0;
         return resultStream;
     }
 
-    public async Task ResizeImageAsync(string pathToImage, Size newSize, string pathToResult)
+    public Task ResizeImageAsync(string pathToImage, Size newSize, string pathToResult)
     {
-        using var image = await Image.LoadAsync(pathToImage);
+        return ResizeImageAsync(File.OpenRead(pathToImage), newSize, pathToResult);
+    }
+
+    public async Task ResizeImageAsync(Stream imageStream, Size newSize, string pathToResult)
+    {
+        using var image = await Image.LoadAsync(imageStream);
         image.Mutate(mutatingBuilder =>
         {
             mutatingBuilder.Resize(GetResizeOptions(newSize));
