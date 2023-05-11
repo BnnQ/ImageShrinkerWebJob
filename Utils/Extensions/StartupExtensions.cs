@@ -1,10 +1,15 @@
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Queues;
 using ImageShrinkerWebJob.Configuration;
 using ImageShrinkerWebJob.Services;
 using ImageShrinkerWebJob.Services.Abstractions;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ImageShrinkerWebJob.Utils.Extensions;
 
@@ -31,9 +36,17 @@ public static class StartupExtensions
             services.Configure<ImageProcessing>(context.Configuration.GetRequiredSection(nameof(ImageProcessing)));
             
             #endregion
-
+            
             services.AddSingleton<ImageSharpEncoderProvider>();
             services.AddSingleton<IImageResizer, ImageSharpImageResizer>();
+            
+            services.AddAzureClients(clients =>
+            {
+                var storageConnectionString = context.Configuration.GetConnectionString("AzureStorage");
+                clients.AddBlobServiceClient(storageConnectionString);
+                clients.AddQueueServiceClient(storageConnectionString);
+            });
+            
         });
 
         #endregion
@@ -66,6 +79,24 @@ public static class StartupExtensions
 
     public static void Configure(this IHost app)
     {
+        #region Ensure Azure service clients existing
+
+        var azureOptions = app.Services.GetRequiredService<IOptions<Configuration.Azure>>();
+        var blobServiceClient = app.Services.GetRequiredService<BlobServiceClient>();
+        var queueServiceClient = app.Services.GetRequiredService<QueueServiceClient>();
+
+        blobServiceClient.GetBlobContainerClient(azureOptions.Value.SourceImagesContainerName)
+            .CreateIfNotExists(PublicAccessType.BlobContainer);
+        
+        blobServiceClient.GetBlobContainerClient(azureOptions.Value.ProcessedImagesContainerName)
+            .CreateIfNotExists(PublicAccessType.BlobContainer);
+
+        queueServiceClient.GetQueueClient(azureOptions.Value.QueueName)
+            .CreateIfNotExists();
+
+        #endregion
+        
+        WebJobFunctions.SetServiceProvider(app.Services);
         
     }
     
